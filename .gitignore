@@ -1,0 +1,31 @@
+# --- Game Databases & Save Files ---
+# Keeps your development/test databases out of version control
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Pygame / Python System Artifacts ---
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints
+
+# --- Virtual Environments ---
+.venv/
+venv/
+ENV/
+env/
+
+# --- Operating System Files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- IDEs and Text Editors ---
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
