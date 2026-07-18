@@ -26,7 +26,8 @@
           "is_locked": false,
           "is_hostage": false,
           "clue_text": "He was converting his cash to British Pounds. Kept boasting about outrunning Big Ben.",
-          "failed_text": "I don't talk to broke detectives. Bring cash."
+          "failed_text": "I don't talk to broke detectives. Bring cash.",
+          "fake_clue_text": "Oh yeah, he changed all his money to Euros. Said something about wanting to see the Eiffel Tower in Paris."
         },
         {
           "role": "Hotel Concierge",
@@ -35,7 +36,8 @@
           "is_locked": true,
           "is_hostage": false,
           "clue_text": "He asked for a map of the River Thames and mentioned he was in town for a tennis match.",
-          "failed_text": "Pardon me, but I only discuss hotel guests with polite, charming individuals."
+          "failed_text": "Pardon me, but I only discuss hotel guests with polite, charming individuals.",
+          "fake_clue_text": "He asked for travel brochures for Tokyo. He seemed very excited about sushi."
         }
       ]
     },
@@ -52,7 +54,8 @@
           "is_locked": false,
           "is_hostage": true,
           "clue_text": "He was asking about ancient Egyptian hieroglyphics. Said he was heading to Cairo next.",
-          "failed_text": "You don't intimidate me. Get out of my museum!"
+          "failed_text": "You don't intimidate me. Get out of my museum!",
+          "fake_clue_text": "He was muttering about the Sydney Opera house. Bound for Australia, I wager."
         },
         {
           "role": "Cab Driver",
@@ -61,7 +64,8 @@
           "is_locked": false,
           "is_hostage": false,
           "clue_text": "I dropped him off near a flight heading to the Nile. I noticed a massive gold ring on his pinky finger.",
-          "failed_text": "Gas ain't free, pal. No money, no talk."
+          "failed_text": "Gas ain't free, pal. No money, no talk.",
+          "fake_clue_text": "Dropped him off at the terminal for flights to Rio. Said he wanted to dance the Samba."
         }
       ]
     },
@@ -78,7 +82,8 @@
           "is_locked": false,
           "is_hostage": false,
           "clue_text": "I saw him! He was carrying a massive bronze bell wrapped in a blanket. Go get him, Lacy!",
-          "failed_text": "I don't know who you are. Go away!"
+          "failed_text": "I don't know who you are. Go away!",
+          "fake_clue_text": "Never heard of him. Try looking in Antarctica."
         }
       ]
     }
