@@ -31,6 +31,8 @@ class ShootingRangeGame:
         self.spawn_rate = 90  # Frames between new spawns (~1.5 seconds)
 
         # --- LEVEL DESIGN LAYOUT DATA ---
+        # --- LEVEL DESIGN LAYOUT DATA ---
+        # Added explicit slide directions and baseline offsets for hiding assets
         self.level_data = {
             "scenery": [
                 {"type": "building", "x": 50, "y": 150, "width": 300, "height": 350, "color": (100, 100, 105)},
@@ -43,11 +45,12 @@ class ShootingRangeGame:
                 {"type": "newsstand", "x": 680, "y": 400, "width": 70, "height": 100, "color": (148, 0, 211)}
             ],
             "spawn_points": [
-                {"id": "window_left", "x": 105, "y": 205, "width": 40, "height": 60},
-                {"id": "window_right", "x": 225, "y": 205, "width": 40, "height": 60},
-                {"id": "dumpster_side", "x": 175, "y": 420, "width": 45, "height": 80},
-                {"id": "car_top", "x": 430, "y": 350, "width": 45, "height": 80},
-                {"id": "newsstand_side", "x": 630, "y": 410, "width": 45, "height": 80}
+                # slide_dir tracks the movement axis. slide_dist is how far it shifts to hide.
+                {"id": "window_left", "x": 105, "y": 205, "width": 40, "height": 60, "slide_dir": "up", "slide_dist": 60},
+                {"id": "window_right", "x": 225, "y": 205, "width": 40, "height": 60, "slide_dir": "up", "slide_dist": 60},
+                {"id": "dumpster_side", "x": 175, "y": 420, "width": 45, "height": 80, "slide_dir": "left", "slide_dist": 50},
+                {"id": "car_top", "x": 430, "y": 350, "width": 45, "height": 80, "slide_dir": "up", "slide_dist": 70},
+                {"id": "newsstand_side", "x": 630, "y": 410, "width": 45, "height": 80, "slide_dir": "right", "slide_dist": 50}
             ]
         }
 
@@ -79,25 +82,29 @@ class ShootingRangeGame:
                     print("Reloaded!")
 
     def spawn_target(self):
-        # Pick a random point from our level structure
         point = random.choice(self.level_data["spawn_points"])
         
-        # Don't stack duplicate targets on the exact same spot
         if any(t["spawn_id"] == point["id"] for t in self.active_targets):
             return
 
-        # Determine target behavior type
-        # 0 = Lone Bad Guy, 1 = Hostage Shield, 2 = Lone Civilian out of nowhere
         roll = random.randint(0, 2)
         
         target = {
             "spawn_id": point["id"],
-            "x": point["x"],
-            "y": point["y"],
+            "target_x": point["x"],   # The destination final X when fully extended
+            "target_y": point["y"],   # The destination final Y when fully extended
             "width": point["width"],
             "height": point["height"],
-            "lifetime": 180, # Stays up for 3 seconds (60fps * 3)
-            "shootable": True
+            "slide_dir": point["slide_dir"],
+            "slide_dist": point["slide_dist"],
+            
+            # Interpolation states
+            "progress": 0.0,          # 0.0 = completely hidden, 1.0 = fully deployed
+            "state": "sliding_in",    # "sliding_in", "waiting", "sliding_out"
+            "slide_speed": 0.15,      # Controls how fast it moves per frame (0.15 = ~7 frames)
+            
+            "lifetime": 120,          # Frames it stays fully open before retracting
+            "shootable": False        # Only true when visible
         }
 
         if roll == 0:
@@ -107,8 +114,22 @@ class ShootingRangeGame:
         else:
             target["type"] = "lone_civilian"
 
-        self.active_targets.append(target)
+        # Calculate initial hidden position based on direction configuration
+        if target["slide_dir"] == "up":
+            target["current_x"] = target["target_x"]
+            target["current_y"] = target["target_y"] + target["slide_dist"]
+        elif target["slide_dir"] == "down":
+            target["current_x"] = target["target_x"]
+            target["current_y"] = target["target_y"] - target["slide_dist"]
+        elif target["slide_dir"] == "left":
+            target["current_x"] = target["target_x"] + target["slide_dist"]
+            target["current_y"] = target["target_y"]
+        elif target["slide_dir"] == "right":
+            target["current_x"] = target["target_x"] - target["slide_dist"]
+            target["current_y"] = target["target_y"]
 
+        self.active_targets.append(target)
+    
     def check_shot(self, mouse_pos):
         # Raycast collision detection framework will connect here in Step 3
         pass
@@ -149,7 +170,8 @@ class ShootingRangeGame:
         # 2. TARGET CHARACTER POPUP LAYER (Drawn inside/in-front of scenery)
         # =========================================================================
         for target in self.active_targets:
-            tx, ty, tw, th = target["x"], target["y"], target["width"], target["height"]
+            # FIX: Pull from the new current position variables calculated by the engine
+            tx, ty, tw, th = target["current_x"], target["current_y"], target["width"], target["height"]
             
             if target["type"] == "bad_guy":
                 # Orange = Threat targets that must be shot
@@ -161,9 +183,7 @@ class ShootingRangeGame:
                 
             elif target["type"] == "hostage_shield":
                 # Layered Stack: Red threat in background, Green hostage covering the front
-                # Enemy backing box
                 pygame.draw.rect(self.screen, (255, 0, 0), (tx, ty, tw, th))
-                # Innocent overlapping shielding box (shifted slightly forward/right)
                 pygame.draw.rect(self.screen, (0, 200, 0), (tx + 10, ty + 15, tw - 10, th - 15))
                 
             # Vector debug target outline borders
