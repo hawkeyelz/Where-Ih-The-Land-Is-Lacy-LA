@@ -1,7 +1,7 @@
 import pygame
 import sys
-import json
-import math
+import os
+import random
 
 class ShootingRangeGame:
     def __init__(self, screen):
@@ -10,28 +10,27 @@ class ShootingRangeGame:
         self.running = True
         self.success = False
 
-        # --- PLAYER GAMEPLAY STATES (Driven by dynamic variables) ---
+        # --- PLAYER GAMEPLAY STATES ---
         self.health = 100.0
-        self.money = 1000  # Starting cash balance
+        self.money = 1000
         self.max_ammo = 6
         self.current_ammo = 6
         
-        # --- TUNABLE GAMEPLAY PERCENTAGES & PENALTIES ---
-        self.damage_taken_pct = 20.0       # Health lost when shot by enemy
+        # --- TUNABLE GAMEPLAY VARIABLES ---
+        self.damage_taken_pct = 20.0       # Health lost when shot by an enemy
         self.hostage_cash_penalty_pct = 15.0 # Money lost if you shoot an innocent
-        
-        # --- VISUAL ASSET INITIALIZER PLACEHOLDERS (Replaceable by PNGs) ---
-        self.crosshair_img = None
-        self.hud_ammo_img = None
-        self.hud_health_img = None
         
         # Initialize Fonts
         pygame.font.init()
         self.font = pygame.font.SysFont("Arial", 18)
         self.hud_font = pygame.font.SysFont("Arial", 24, bold=True)
 
-        # --- SAMPLE JSON DATA PATTERN ---
-        # This mirrors the level structures you'll load from your database
+        # --- DYNAMIC ACTIVE TARGET LIST ---
+        self.active_targets = []
+        self.spawn_timer = 0
+        self.spawn_rate = 90  # Frames between new spawns (~1.5 seconds)
+
+        # --- LEVEL DESIGN LAYOUT DATA ---
         self.level_data = {
             "scenery": [
                 {"type": "building", "x": 50, "y": 150, "width": 300, "height": 350, "color": (100, 100, 105)},
@@ -44,13 +43,17 @@ class ShootingRangeGame:
                 {"type": "newsstand", "x": 680, "y": 400, "width": 70, "height": 100, "color": (148, 0, 211)}
             ],
             "spawn_points": [
-                {"id": "window_1", "x": 100, "y": 200, "type": "window"},
-                {"id": "dumpster_left", "x": 180, "y": 440, "type": "side_pop"},
-                {"id": "car_rear", "x": 410, "y": 380, "type": "cover"}
+                {"id": "window_left", "x": 105, "y": 205, "width": 40, "height": 60},
+                {"id": "window_right", "x": 225, "y": 205, "width": 40, "height": 60},
+                {"id": "dumpster_side", "x": 175, "y": 420, "width": 45, "height": 80},
+                {"id": "car_top", "x": 430, "y": 350, "width": 45, "height": 80},
+                {"id": "newsstand_side", "x": 630, "y": 410, "width": 45, "height": 80}
             ]
         }
 
     def handle_input(self):
+        keys = pygame.key.get_pressed()
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -75,28 +78,98 @@ class ShootingRangeGame:
                     self.current_ammo = self.max_ammo
                     print("Reloaded!")
 
+    def spawn_target(self):
+        # Pick a random point from our level structure
+        point = random.choice(self.level_data["spawn_points"])
+        
+        # Don't stack duplicate targets on the exact same spot
+        if any(t["spawn_id"] == point["id"] for t in self.active_targets):
+            return
+
+        # Determine target behavior type
+        # 0 = Lone Bad Guy, 1 = Hostage Shield, 2 = Lone Civilian out of nowhere
+        roll = random.randint(0, 2)
+        
+        target = {
+            "spawn_id": point["id"],
+            "x": point["x"],
+            "y": point["y"],
+            "width": point["width"],
+            "height": point["height"],
+            "lifetime": 180, # Stays up for 3 seconds (60fps * 3)
+            "shootable": True
+        }
+
+        if roll == 0:
+            target["type"] = "bad_guy"
+        elif roll == 1:
+            target["type"] = "hostage_shield"
+        else:
+            target["type"] = "lone_civilian"
+
+        self.active_targets.append(target)
+
     def check_shot(self, mouse_pos):
-        # Target detection framework will connect here in Step 2
+        # Raycast collision detection framework will connect here in Step 3
         pass
 
     def update(self):
-        # Health safety cutoff
+        # Base health engine check
         if self.health <= 0:
             self.health = 0
             self.running = False
             self.success = False
 
+        # Manage spawn intervals
+        self.spawn_timer += 1
+        if self.spawn_timer >= self.spawn_rate:
+            self.spawn_timer = 0
+            self.spawn_target()
+
+        # Update lifetime timers for active targets
+        for target in self.active_targets[:]:
+            target["lifetime"] -= 1
+            if target["lifetime"] <= 0:
+                # If a threat times out without being shot, you take damage
+                if target["type"] == "bad_guy" or target["type"] == "hostage_shield":
+                    self.health -= self.damage_taken_pct
+                    print(f"Ouch! You were shot! Health: {self.health}%")
+                self.active_targets.remove(target)
+
     def draw(self):
         # Sky background floor paint
         self.screen.fill((135, 206, 235))
         
-        # 1. RENDER SCENERY LAYER (Looping through data configurations)
+        # 1. RENDER SCENERY LAYER
         for item in self.level_data["scenery"]:
             pygame.draw.rect(self.screen, item["color"], (item["x"], item["y"], item["width"], item["height"]))
-            # Optional black structural borders for architectural clarity
             pygame.draw.rect(self.screen, (0, 0, 0), (item["x"], item["y"], item["width"], item["height"]), 2)
 
-        # 2. RENDER THE HUD / INTERFACE LAYER
+        # =========================================================================
+        # 2. TARGET CHARACTER POPUP LAYER (Drawn inside/in-front of scenery)
+        # =========================================================================
+        for target in self.active_targets:
+            tx, ty, tw, th = target["x"], target["y"], target["width"], target["height"]
+            
+            if target["type"] == "bad_guy":
+                # Orange = Threat targets that must be shot
+                pygame.draw.rect(self.screen, (255, 140, 0), (tx, ty, tw, th))
+                
+            elif target["type"] == "lone_civilian":
+                # Green = Pure civilian target popping out completely on their own
+                pygame.draw.rect(self.screen, (0, 200, 0), (tx, ty, tw, th))
+                
+            elif target["type"] == "hostage_shield":
+                # Layered Stack: Red threat in background, Green hostage covering the front
+                # Enemy backing box
+                pygame.draw.rect(self.screen, (255, 0, 0), (tx, ty, tw, th))
+                # Innocent overlapping shielding box (shifted slightly forward/right)
+                pygame.draw.rect(self.screen, (0, 200, 0), (tx + 10, ty + 15, tw - 10, th - 15))
+                
+            # Vector debug target outline borders
+            pygame.draw.rect(self.screen, (255, 255, 255), (tx, ty, tw, th), 1)
+
+        # 3. RENDER THE HUD / INTERFACE LAYER
         # Health Bar Drawing Mechanics
         pygame.draw.rect(self.screen, (255, 0, 0), (50, 30, 200, 25))
         health_width = int(200 * (self.health / 100.0))
@@ -119,7 +192,7 @@ class ShootingRangeGame:
         self.screen.blit(lbl_health, (50, 10))
         self.screen.blit(lbl_ammo, (300, 10))
 
-        # 3. INTERACTIVE RETICLE CROSSHAIR (Drawn over scenery, under target vectors)
+        # 4. INTERACTIVE RETICLE CROSSHAIR
         mx, my = pygame.mouse.get_pos()
         pygame.draw.circle(self.screen, (255, 0, 0), (mx, my), 15, 2)
         pygame.draw.line(self.screen, (255, 0, 0), (mx - 20, my), (mx + 20, my), 2)
@@ -128,7 +201,7 @@ class ShootingRangeGame:
         pygame.display.flip()
 
     def run(self):
-        # Hide standard system cursor to let the graphical tracking rect display properly
+        # Hide standard system cursor to let the graphical crosshair display properly
         pygame.mouse.set_visible(False)
         
         while self.running:
